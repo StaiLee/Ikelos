@@ -45,7 +45,7 @@ Named after the Greek god of realistic dreams, Ikelos creates perfect, offline-b
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/StaiLee/Ikelos.git]
+git clone [https://github.com/StaiLee/Ikelos.git](https://github.com/StaiLee/Ikelos.git)
 cd Ikelos
 
 # 2. Install dependencies
@@ -53,3 +53,84 @@ go mod tidy
 
 # 3. Build the binary
 go build -ldflags="-s -w" -o ikelos main.go
+```
+
+---
+
+## 🚀 Usage
+
+Ikelos simplifies complex mirroring tasks into tactical modes, now with advanced routing options.
+
+```bash
+./ikelos -url <TARGET> [FLAGS]
+```
+
+### 🛡️ Tactical Modes
+
+| Mode | Code | Description | Best Use Case |
+| :--- | :--- | :--- | :--- |
+| **MIRROR** | `-mode mirror` | **(Default)** High fidelity. Balanced recursion and speed. | UI/UX Theft, Offline Backup. |
+| **SHADOW** | `-mode shadow` | **Stealth / Evasion.** Slow, randomized jitter, human emulation. | Protected Sites (Cloudflare), WAFs. |
+| **BLITZ** | `-mode blitz` | **Aggressive Dump.** Max threads, minimal timeouts. | Data Hoarding, CTFs, Docs scraping. |
+
+### 🚩 Command Flags
+
+| Flag | Description |
+| :--- | :--- |
+| `-url` | The target website (e.g., `https://example.com`). |
+| `-out` | Output directory for the clone (Default: `./cloned_site`). |
+| `-proxy` | **(NEW)** Proxy URL (e.g., `http://127.0.0.1:8080` or `socks5://...`). |
+| `-ua` | **(NEW)** Custom User-Agent string (Overrides rotation). |
+| `-depth` | Recursion depth. `2` is standard. |
+| `-threads` | Number of concurrent workers (Default: `20`). |
+| `-nositemap` | Disable the *Sitemap Hunter* module (Strict crawling). |
+
+### 🎮 Runtime Controls
+
+* **`P`**: Toggle **Pause/Resume**.
+* **`Q`** or **`Ctrl+C`**: Abort mission and save current state.
+
+### 💡 Operational Examples
+
+**1. The "Ghost" Extraction (Proxy + Stealth)**
+Clone a protected site through a local Tor proxy with randomized delays.
+```bash
+./ikelos -url [https://protected-target.com](https://protected-target.com) -mode shadow -proxy socks5://127.0.0.1:9050
+```
+
+**2. The Archive (High Fidelity)**
+Create a perfect mirror, respecting `robots.txt` but hunting for hidden sitemap links.
+```bash
+./ikelos -url [https://awwwards.com](https://awwwards.com) -mode mirror -out ./archives/awwwards
+```
+
+**3. The Smash & Grab (Max Speed)**
+Download a documentation site using 50 threads, ignoring sitemaps for speed.
+```bash
+./ikelos -url [https://docs.python.org](https://docs.python.org) -mode blitz -threads 50 -nositemap
+```
+
+---
+
+## 🏗️ Technical Architecture
+
+Ikelos v7.0 is an engineering lesson in **Go Concurrency** and **HTML Surgery**:
+
+1.  **The Hunter:** Scans `robots.txt` and `sitemap.xml` to build an initial target map.
+2.  **The Brain (Crawler):** Manages a thread-safe `Visited` map, handles pause states, and distributes jobs via a semaphore-controlled queue.
+3.  **The Swarm (Workers):** Hundreds of Goroutines fetch assets simultaneously via a persistent HTTP Transport.
+4.  **The Surgeon (Parser):** Uses `goquery` to parse DOM, inject local MD5-hashed paths, resolve CSS `@import`/`url()`, and decrypt `srcset` attributes.
+5.  **The Overseer (TUI):** A separate Bubble Tea event loop renders the dashboard at 60fps, providing a real-time "Live Feed" and segmented progress visualization without blocking the engine.
+
+---
+
+## ⚠️ Disclaimer
+
+**Ikelos is intended for educational purposes, digital archiving, and authorized security testing.**
+Cloning websites you do not own may violate terms of service or copyright laws. The developers assume no liability for misuse.
+
+---
+
+## 📜 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
