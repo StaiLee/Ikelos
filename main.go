@@ -114,7 +114,172 @@ func renderBar(width int, pct float64, color lipgloss.Color) string {
 }
 
 // ---------------------------------------------------------
-// UI MODEL: DASHBOARD
+// UI MODEL: INTERACTIVE MANUAL (RESTORED & UPDATED)
+// ---------------------------------------------------------
+
+type helpModel struct {
+	pages         []string
+	pageIdx       int
+	width, height int
+	quitting      bool
+}
+
+func initialHelpModel() helpModel { return helpModel{pages: buildPages(), pageIdx: 0} }
+func (m helpModel) Init() tea.Cmd { return nil }
+
+func (m helpModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		case "right", "l", "enter", " ":
+			if m.pageIdx < len(m.pages)-1 {
+				m.pageIdx++
+			}
+		case "left", "h", "backspace":
+			if m.pageIdx > 0 {
+				m.pageIdx--
+			}
+		}
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+	}
+	return m, nil
+}
+
+func (m helpModel) View() string {
+	if m.quitting {
+		return ""
+	}
+	content := m.pages[m.pageIdx]
+
+	navStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
+	activeDot := lipgloss.NewStyle().Foreground(ThemeMirror.Primary).Render("●")
+	inactiveDot := lipgloss.NewStyle().Foreground(lipgloss.Color("#333")).Render("○")
+
+	dots := ""
+	for i := 0; i < len(m.pages); i++ {
+		if i == m.pageIdx {
+			dots += activeDot + " "
+		} else {
+			dots += inactiveDot + " "
+		}
+	}
+
+	nav := fmt.Sprintf("\n%s\n%s", dots, navStyle.Render("[ARROWS] NEXT PAGE  •  [Q] EXIT SYSTEM"))
+
+	frame := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(ThemeMirror.Primary).
+		Padding(1, 3).
+		Width(90).
+		Align(lipgloss.Center)
+
+	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center,
+		lipgloss.JoinVertical(lipgloss.Center, frame.Render(content), nav),
+	)
+}
+
+func buildPages() []string {
+	t := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FFF")).Background(ThemeMirror.Secondary).Padding(0, 1).Render
+	h := lipgloss.NewStyle().Bold(true).Foreground(ThemeMirror.Primary).MarginTop(1).Render
+	c := lipgloss.NewStyle().Foreground(lipgloss.Color("#0F0")).Background(lipgloss.Color("#222")).Padding(0, 1).Render
+	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#666")).Render
+
+	p1 := fmt.Sprintf(`
+%s
+
+IKELOS v%s
+THE ARCHITECT
+
+%s
+%s
+
+"We do not just copy. We absorb."
+`, renderGradient("/// TOTAL REALITY SHIFTING ENGINE ///", ThemeMirror.Gradient), "7.0", dim("Classified Tool"), dim("Systems Optimal."))
+
+	p2 := fmt.Sprintf(`
+%s
+
+Ikelos v7 "The Architect" introduces intelligent structural analysis.
+
+%s
+1. %s : Scans robots.txt & sitemap.xml for target mapping.
+2. %s : Analyzes DOM, detects Lazy-Load & Srcset images.
+3. %s : Routes traffic via Proxies (if enabled) with random UAs.
+4. %s : Hashing engine that rewrites filenames using MD5 to prevent OS errors.
+
+%s
+New features: Proxy Support, Tactical Pause, MD5 File Hashing.
+`, t("SYSTEM ARCHITECTURE"), h("WORKFLOW"), c("The Hunter"), c("The Brain"), c("The Ghost"), c("The Vault"), h("CAPABILITIES"))
+
+	p3 := fmt.Sprintf(`
+%s
+
+%s
+%s
+Target: High Fidelity Clone.
+Specs:  Wait times, Full Recursion, Sitemap Check active.
+
+%s
+%s
+Target: WAF Protected / Stealth.
+Specs:  Slow, Jitter, Human Emulation. Requires Proxy for max effect.
+
+%s
+%s
+Target: Bruteforce Download.
+Specs:  MAX THREADS. No Mercy. 3 Retries per fail.
+`, t("TACTICAL PROFILES"), h("1. MIRROR (Standard)"), c("-mode mirror"), h("2. SHADOW (Stealth)"), c("-mode shadow"), h("3. BLITZ (Speed)"), c("-mode blitz"))
+
+	p4 := fmt.Sprintf(`
+%s
+
+%s
+Target URL (http/https).
+
+%s
+Output directory for the clone.
+
+%s
+Proxy URL (HTTP/SOCKS5). Essential for "Ghost" operations.
+Ex: http://127.0.0.1:8080
+
+%s
+Operational profile: mirror, shadow, blitz.
+
+%s
+Manual User-Agent override (Bypasses rotation).
+`,
+		t("COMMAND FLAGS (1/2)"), c("-url <URL>"), c("-out <DIR>"), c("-proxy <URL>"), c("-mode <MODE>"), c("-ua <STRING>"))
+
+	p5 := fmt.Sprintf(`
+%s
+
+%s
+Recursion depth (Links to follow).
+
+%s
+Concurrent workers.
+
+%s
+Disable Sitemap hunting.
+
+%s
+%s
+Press 'P' during scan to Freeze/Resume the engine.
+Perfect for analyzing real-time logs without losing context.
+`,
+		t("COMMAND FLAGS (2/2) & CONTROLS"), c("-depth <N>"), c("-threads <N>"), c("-nositemap"), h("RUNTIME CONTROLS"), c("[P] PAUSE / RESUME"))
+
+	return []string{p1, p2, p3, p4, p5}
+}
+
+// ---------------------------------------------------------
+// UI MODEL: CLONER DASHBOARD
 // ---------------------------------------------------------
 
 type tickMsg time.Time
@@ -143,7 +308,7 @@ type model struct {
 	filesCount uint64
 	bytesCount uint64
 	errCount   uint64
-	qSize      int // Queue size approx
+	qSize      int
 
 	countIMG  uint64
 	countHTML uint64
@@ -180,8 +345,8 @@ type Config struct {
 	Workers     int
 	Timeout     time.Duration
 	SkipSitemap bool
-	Proxy       string // New: Proxy URL
-	UserAgent   string // New: Custom UA
+	Proxy       string
+	UserAgent   string
 }
 
 type IkelosEngine struct {
@@ -191,7 +356,7 @@ type IkelosEngine struct {
 	Semaphore chan struct{}
 	WaitGroup sync.WaitGroup
 	MsgChan   chan logMsg
-	IsPaused  atomic.Bool // New: Pause Control
+	IsPaused  atomic.Bool
 
 	// Stats
 	Files    uint64
@@ -200,14 +365,14 @@ type IkelosEngine struct {
 	TypeIMG  uint64
 	TypeHTML uint64
 	TypeCODE uint64
-	QueueLen int64 // Track pending jobs roughly
+	QueueLen int64
 
 	// Robots
 	RobotsDisallowed []string
 }
 
 // ---------------------------------------------------------
-// INIT UI
+// INIT UI (DASHBOARD)
 // ---------------------------------------------------------
 
 func initialModel(cfg Config, engine *IkelosEngine, mChan chan logMsg, dChan chan bool) model {
@@ -232,7 +397,7 @@ func initialModel(cfg Config, engine *IkelosEngine, mChan chan logMsg, dChan cha
 		config:    cfg,
 		engine:    engine,
 		theme:     t,
-		sparkline: make([]int, 40), // Wider sparkline
+		sparkline: make([]int, 40),
 		msgChan:   mChan,
 		doneChan:  dChan,
 	}
@@ -277,7 +442,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		h := m.height - 12 // More space for header/footer
+		h := m.height - 12
 		if h < 10 {
 			h = 10
 		}
@@ -294,7 +459,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tickMsg:
-		// Read Atomic Stats
 		m.filesCount = atomic.LoadUint64(&m.engine.Files)
 		m.bytesCount = atomic.LoadUint64(&m.engine.Bytes)
 		m.errCount = atomic.LoadUint64(&m.engine.Errors)
@@ -348,11 +512,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if msg.Text != "" {
-			m.lastURL = msg.Text // Update Live Feed
+			m.lastURL = msg.Text
 			ts := lipgloss.NewStyle().Foreground(lipgloss.Color("#555")).Render(time.Now().Format("15:04:05"))
 			pre := lipgloss.NewStyle().Foreground(color).Bold(true).Width(7).Render(prefix)
 			txt := lipgloss.NewStyle().Foreground(lipgloss.Color("#EEE")).Render(msg.Text)
-			// Truncate text if too long for viewport
 			if len(txt) > m.viewport.Width-20 {
 				txt = txt[:m.viewport.Width-23] + "..."
 			}
@@ -388,7 +551,7 @@ func (m model) View() string {
 		border = border.BorderForeground(m.theme.Warning)
 	}
 
-	// 1. Header
+	// Header
 	modeStatus := string(m.config.Mode)
 	if m.paused {
 		modeStatus += " [PAUSED]"
@@ -397,17 +560,16 @@ func (m model) View() string {
 	title := renderGradient(headTxt, m.theme.Gradient)
 	header := border.Copy().Width(m.width - 2).Align(lipgloss.Center).Render(title)
 
-	// Layout Calc
-	leftW := int(float64(m.width) * 0.35) // Wider Info Panel
+	// Layout
+	leftW := int(float64(m.width) * 0.35)
 	rightW := m.width - leftW - 6
 
 	lbl := lipgloss.NewStyle().Foreground(cPrim).Bold(true).Render
 	val := lipgloss.NewStyle().Foreground(m.theme.Text).Render
 	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("#555")).Render
 
-	// Sparkline
 	spark := ""
-	bars := []string{" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"} // Smoother
+	bars := []string{" ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
 	for _, v := range m.sparkline {
 		if v >= len(bars) {
 			v = len(bars) - 1
@@ -416,16 +578,13 @@ func (m model) View() string {
 	}
 	sparkRender := lipgloss.NewStyle().Foreground(cSec).Render(spark)
 
-	// --- LEFT PANEL ---
-
-	// Target Info
+	// Panels
 	blockTarget := lipgloss.JoinVertical(lipgloss.Left,
 		lbl("🎯 TARGET ACQUISITION"),
 		val(m.config.TargetURL.Host),
 		dim(fmt.Sprintf("Depth: %d | Threads: %d", m.config.MaxDepth, m.config.Workers)),
 	)
 
-	// Performance
 	blockPerf := lipgloss.JoinVertical(lipgloss.Left,
 		lbl("⚡ SYSTEM METRICS"),
 		fmt.Sprintf("MEM : %s", val(m.ramUsage)),
@@ -434,7 +593,6 @@ func (m model) View() string {
 		fmt.Sprintf("ACT : %s", val(fmt.Sprintf("%d/%d", m.activeWorkers, m.config.Workers))),
 	)
 
-	// Stats
 	blockStats := lipgloss.JoinVertical(lipgloss.Left,
 		lbl("📊 DATA INGESTION"),
 		fmt.Sprintf("Files: %s", val(fmt.Sprintf("%d", m.filesCount))),
@@ -444,7 +602,6 @@ func (m model) View() string {
 		fmt.Sprintf("CODE : %s", val(fmt.Sprintf("%d", m.countCODE))),
 	)
 
-	// Live Feed (Last processed URL truncated)
 	lastUrlDisplay := m.lastURL
 	if len(lastUrlDisplay) > 35 {
 		lastUrlDisplay = "..." + lastUrlDisplay[len(lastUrlDisplay)-35:]
@@ -461,8 +618,7 @@ func (m model) View() string {
 	leftP := border.Copy().Width(leftW).Height(m.viewport.Height).Background(cDark).Padding(1, 2).Render(leftContent)
 	rightP := border.Copy().Width(rightW).Height(m.viewport.Height).Render(m.viewport.View())
 
-	// --- FOOTER ---
-
+	// Footer
 	spin := m.spinner.View()
 	status := "PROWL IN PROGRESS..."
 	if m.finished {
@@ -494,7 +650,6 @@ func (m model) View() string {
 		lipgloss.NewStyle().Foreground(cPrim).Width(12).Align(lipgloss.Right).Render(pctText),
 	)
 
-	// Hint line
 	hint := lipgloss.NewStyle().Foreground(lipgloss.Color("#555")).Render("[P] PAUSE/RESUME  •  [Q] ABORT MISSION")
 
 	foot := border.Copy().Width(m.width - 2).Render(
@@ -509,7 +664,7 @@ func (m model) View() string {
 // ---------------------------------------------------------
 
 func NewEngine(cfg Config, mChan chan logMsg) *IkelosEngine {
-	// 1. Configure Transport (Proxy Support)
+	// Configure Transport with Proxy Support
 	t := &http.Transport{
 		MaxIdleConns:        1000,
 		MaxIdleConnsPerHost: 500,
@@ -585,7 +740,7 @@ func (e *IkelosEngine) isAllowed(target string) bool {
 }
 
 func (e *IkelosEngine) Run() {
-	e.fetchRobotsTxt() // Always check, but only respect if config says so
+	e.fetchRobotsTxt()
 
 	if !e.Config.SkipSitemap {
 		go e.huntSitemap()
@@ -621,7 +776,7 @@ func (e *IkelosEngine) huntSitemap() {
 
 func (e *IkelosEngine) crawlPage(target string, depth int) {
 	defer e.WaitGroup.Done()
-	e.checkPause() // Handle Pause
+	e.checkPause()
 
 	if depth > e.Config.MaxDepth {
 		return
@@ -630,7 +785,6 @@ func (e *IkelosEngine) crawlPage(target string, depth int) {
 		target = strings.Split(target, "#")[0]
 	}
 
-	// Robot Check
 	if !e.isAllowed(target) {
 		e.Log("Blocked by Robots.txt: "+filepath.Base(target), "WARN")
 		return
@@ -640,13 +794,12 @@ func (e *IkelosEngine) crawlPage(target string, depth int) {
 		return
 	}
 
-	// Mode Logic
 	if e.Config.Mode == ModeShadow {
 		time.Sleep(time.Duration(rand.Intn(1000)+500) * time.Millisecond)
 	}
 
 	atomic.AddInt64(&e.QueueLen, 1)
-	e.Semaphore <- struct{}{} // Acquire Worker
+	e.Semaphore <- struct{}{}
 	defer func() {
 		<-e.Semaphore
 		atomic.AddInt64(&e.QueueLen, -1)
@@ -654,7 +807,6 @@ func (e *IkelosEngine) crawlPage(target string, depth int) {
 
 	e.Log("Crawling: "+filepath.Base(target), "INFO")
 
-	// Retry Logic
 	var bodyBytes []byte
 	var statusCode int
 	for retries := 0; retries < 3; retries++ {
@@ -684,19 +836,16 @@ func (e *IkelosEngine) crawlPage(target string, depth int) {
 		e.Log(filepath.Base(target), "SUCCESS")
 	}
 
-	// Find Links
 	doc.Find("a").Each(func(_ int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if exists {
 			absURL := e.resolveURL(href, target)
 			if absURL != "" && strings.Contains(absURL, e.Config.TargetURL.Host) {
-				// Extension Check (avoid downloading zip/exe as pages)
 				ext := strings.ToLower(filepath.Ext(absURL))
 				if ext == "" || ext == ".html" || ext == ".htm" || ext == ".php" || ext == ".asp" {
 					e.WaitGroup.Add(1)
 					go e.crawlPage(absURL, depth+1)
 				} else {
-					// Treat as asset
 					e.downloadAsync(absURL, target)
 				}
 			}
@@ -705,7 +854,6 @@ func (e *IkelosEngine) crawlPage(target string, depth int) {
 }
 
 func (e *IkelosEngine) processAssetsAndRewrite(doc *goquery.Document, pageURL string) {
-	// Standard Assets
 	doc.Find("img, source, link, script, video, audio").Each(func(_ int, s *goquery.Selection) {
 		attrs := []string{"src", "href", "data-src", "data-original", "poster"}
 		for _, attr := range attrs {
@@ -718,7 +866,6 @@ func (e *IkelosEngine) processAssetsAndRewrite(doc *goquery.Document, pageURL st
 				}
 			}
 		}
-		// Handle Srcset (Advanced)
 		srcset, exists := s.Attr("srcset")
 		if exists && srcset != "" {
 			newSrcset := e.rewriteSrcset(srcset, pageURL)
@@ -726,7 +873,6 @@ func (e *IkelosEngine) processAssetsAndRewrite(doc *goquery.Document, pageURL st
 		}
 	})
 
-	// Inline Styles
 	doc.Find("*").Each(func(_ int, s *goquery.Selection) {
 		style, exists := s.Attr("style")
 		if exists && strings.Contains(style, "url") {
@@ -747,7 +893,6 @@ func (e *IkelosEngine) rewriteSrcset(srcset string, pageURL string) string {
 			if absURL != "" {
 				e.downloadAsync(absURL, pageURL)
 				relPath := e.getRelPath(pageURL, absURL)
-				// Reconstruct part
 				if len(fields) > 1 {
 					newParts = append(newParts, relPath+" "+strings.Join(fields[1:], " "))
 				} else {
@@ -782,7 +927,6 @@ func (e *IkelosEngine) downloadAsset(target, referer string) {
 		return
 	}
 
-	// Check for CSS imports
 	if strings.HasSuffix(strings.Split(target, "?")[0], ".css") {
 		data = []byte(e.rewriteCSSString(string(data), target))
 		atomic.AddUint64(&e.TypeCODE, 1)
@@ -796,7 +940,6 @@ func (e *IkelosEngine) downloadAsset(target, referer string) {
 	e.Log(filepath.Base(target), "ASSET")
 }
 
-// Better CSS Regex to handle @import and url()
 var cssUrlRegex = regexp.MustCompile(`(?:url\(['"]?|@import\s+['"]?)([^'"\)]+)['"]?\)`)
 
 func (e *IkelosEngine) rewriteCSSString(content, baseURL string) string {
@@ -816,7 +959,6 @@ func (e *IkelosEngine) rewriteCSSString(content, baseURL string) string {
 		e.downloadAsync(absURL, baseURL)
 		relPath := e.getRelPath(baseURL, absURL)
 
-		// Preserve wrapper (url() or @import)
 		if strings.HasPrefix(match, "@import") {
 			return fmt.Sprintf("@import '%s')", strings.ReplaceAll(relPath, "\\", "/"))
 		}
@@ -824,7 +966,6 @@ func (e *IkelosEngine) rewriteCSSString(content, baseURL string) string {
 	})
 }
 
-// USER AGENT POOL
 var userAgents = []string{
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -835,7 +976,6 @@ var userAgents = []string{
 func (e *IkelosEngine) fetch(target, referer string) ([]byte, int) {
 	req, _ := http.NewRequest("GET", target, nil)
 
-	// Random UA or Custom
 	if e.Config.UserAgent != "" {
 		req.Header.Set("User-Agent", e.Config.UserAgent)
 	} else {
@@ -848,7 +988,6 @@ func (e *IkelosEngine) fetch(target, referer string) ([]byte, int) {
 
 	resp, err := e.Client.Do(req)
 	if err != nil {
-		// e.Log("Fail: "+filepath.Base(target), "ERROR") // Too noisy
 		atomic.AddUint64(&e.Errors, 1)
 		return nil, 0
 	}
@@ -870,7 +1009,6 @@ func (e *IkelosEngine) saveFile(urlStr string, data []byte) {
 	atomic.AddUint64(&e.Files, 1)
 }
 
-// MD5 HASHING FOR LONG FILENAMES
 func (e *IkelosEngine) getFilePath(urlStr string) string {
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -886,22 +1024,18 @@ func (e *IkelosEngine) getFilePath(urlStr string) string {
 		path = path + ".html"
 	}
 
-	// Sanitize path for OS
 	path = strings.ReplaceAll(path, ":", "_")
 
-	// Query params handling
 	if u.RawQuery != "" {
-		// Use MD5 hash for query string if it's complex/long
 		hasher := md5.New()
 		hasher.Write([]byte(u.RawQuery))
-		hash := hex.EncodeToString(hasher.Sum(nil))[:8] // Short hash
+		hash := hex.EncodeToString(hasher.Sum(nil))[:8]
 
 		ext := filepath.Ext(path)
 		name := strings.TrimSuffix(path, ext)
 		path = fmt.Sprintf("%s_%s%s", name, hash, ext)
 	}
 
-	// Final check for filename length
 	if len(filepath.Base(path)) > 200 {
 		ext := filepath.Ext(path)
 		hasher := md5.New()
@@ -950,12 +1084,13 @@ func main() {
 	uaFlag := flag.String("ua", "", "Custom User-Agent")
 	flag.Parse()
 
-	// Show Help if no URL
+	// INTERACTIVE MANUAL LAUNCH (if no URL provided)
 	if *urlStr == "" {
-		// We'll skip the full help model for brevity in this final version block
-		// but typically you'd call it here.
-		fmt.Println("Usage: ikelos -url <URL> [options]")
-		fmt.Println("Flags: -out, -mode, -threads, -depth, -proxy, -ua, -nositemap")
+		p := tea.NewProgram(initialHelpModel(), tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			fmt.Println("Error starting manual:", err)
+			os.Exit(1)
+		}
 		os.Exit(0)
 	}
 
@@ -994,7 +1129,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Final Summary to Stdout
 	c := lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00")).Bold(true).Render
 	fmt.Printf("\n%s\n", c(fmt.Sprintf("[+] ARCHIVE COMPLETE. %d files downloaded.", atomic.LoadUint64(&engine.Files))))
 	if engine.Errors > 0 {
