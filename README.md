@@ -45,7 +45,7 @@ Named after the Greek god of realistic dreams, Ikelos creates perfect, offline-b
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/StaiLee/Ikelos.git](https://github.com/StaiLee/Ikelos.git)
+git clone [https://github.com/StaiLee/Ikelos.git]
 cd Ikelos
 
 # 2. Install dependencies
