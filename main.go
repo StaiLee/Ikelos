@@ -210,7 +210,7 @@ Ikelos v7 "The Architect" introduces intelligent structural analysis.
 1. %s : Scans robots.txt & sitemap.xml for target mapping.
 2. %s : Analyzes DOM, detects Lazy-Load & Srcset images.
 3. %s : Routes traffic via Proxies (if enabled) with random UAs.
-4. %s : Hashing engine that rewrites filenames using MD5 to prevent OS errors.
+4. %s : Hashing engine that rewrites filenames using MD5 to prevent OS errors (Windows fix included).
 
 %s
 New features: Proxy Support, Tactical Pause, MD5 File Hashing.
@@ -1009,12 +1009,17 @@ func (e *IkelosEngine) saveFile(urlStr string, data []byte) {
 	atomic.AddUint64(&e.Files, 1)
 }
 
+// WINDOWS-PROOF FILE PATH GENERATOR
 func (e *IkelosEngine) getFilePath(urlStr string) string {
 	u, err := url.Parse(urlStr)
 	if err != nil {
-		return filepath.Join(e.Config.OutputDir, "unknown")
+		return filepath.Join(e.Config.OutputDir, "unknown_file")
 	}
 
+	// 1. Host Sanitization
+	host := strings.ReplaceAll(u.Host, ":", "_")
+
+	// 2. Path Handling
 	path := u.Path
 	if path == "" || path == "/" {
 		path = "/index.html"
@@ -1024,8 +1029,17 @@ func (e *IkelosEngine) getFilePath(urlStr string) string {
 		path = path + ".html"
 	}
 
-	path = strings.ReplaceAll(path, ":", "_")
+	// 3. AGGRESSIVE SANITIZATION (The Windows Fix)
+	// Replace forbidden chars: < > : " / \ | ? *
+	// Keep normal path structure but sanitize segment content if needed.
+	// For Windows robustness, we often replace colon, pipe, question mark, etc.
+	// We handle query params separately, so ? is usually not in path here, but just in case.
+	// NOTE: We don't want to kill the directory separators '/' in the path.
+	// So we regex replace "bad chars" except slash.
+	re := regexp.MustCompile(`[<>:"|?*]`)
+	path = re.ReplaceAllString(path, "_")
 
+	// 4. Query String Hashing (MD5)
 	if u.RawQuery != "" {
 		hasher := md5.New()
 		hasher.Write([]byte(u.RawQuery))
@@ -1033,18 +1047,27 @@ func (e *IkelosEngine) getFilePath(urlStr string) string {
 
 		ext := filepath.Ext(path)
 		name := strings.TrimSuffix(path, ext)
+		// Limit name length
+		if len(name) > 50 {
+			name = name[:50]
+		}
 		path = fmt.Sprintf("%s_%s%s", name, hash, ext)
 	}
 
-	if len(filepath.Base(path)) > 200 {
-		ext := filepath.Ext(path)
+	// 5. MAX_PATH Protection
+	fileName := filepath.Base(path)
+	if len(fileName) > 100 {
+		ext := filepath.Ext(fileName)
 		hasher := md5.New()
-		hasher.Write([]byte(filepath.Base(path)))
+		hasher.Write([]byte(fileName))
 		hash := hex.EncodeToString(hasher.Sum(nil))
-		path = filepath.Join(filepath.Dir(path), hash+ext)
+		dir := filepath.Dir(path)
+		path = filepath.Join(dir, hash+ext)
 	}
 
-	return filepath.Join(e.Config.OutputDir, u.Host, path)
+	// 6. Final Construction
+	fullPath := filepath.Join(e.Config.OutputDir, host, path)
+	return filepath.Clean(fullPath)
 }
 
 func (e *IkelosEngine) resolveURL(href, base string) string {
