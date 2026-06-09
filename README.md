@@ -1,6 +1,7 @@
 # 🧬 IKELOS - THE REALITY SHIFTER
 
 [![CI](https://github.com/StaiLee/Ikelos/actions/workflows/ci.yml/badge.svg)](https://github.com/StaiLee/Ikelos/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/StaiLee/Ikelos?color=39E0D8&logo=github)](https://github.com/StaiLee/Ikelos/releases/latest)
 [![Go](https://img.shields.io/github/go-mod/go-version/StaiLee/Ikelos?logo=go&color=00ADD8)](go.mod)
 [![License: MIT](https://img.shields.io/github/license/StaiLee/Ikelos?color=blue)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/StaiLee/Ikelos?logo=github&color=e3b341)](https://github.com/StaiLee/Ikelos/stargazers)
