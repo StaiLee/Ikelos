@@ -1,18 +1,22 @@
+<p align="center">
+  <img src="./assets/banner.svg" alt="Ikelos" width="100%"/>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/actions/workflow/status/StaiLee/Ikelos/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=BUILD" alt="badge"/>
+  <img src="https://img.shields.io/github/v/release/StaiLee/Ikelos?style=for-the-badge&logo=github&color=39E0D8&label=RELEASE" alt="badge"/>
+  <img src="https://img.shields.io/github/go-mod/go-version/StaiLee/Ikelos?style=for-the-badge&logo=go&logoColor=white&color=00ADD8&label=GO" alt="badge"/>
+  <img src="https://img.shields.io/github/license/StaiLee/Ikelos?style=for-the-badge&color=684A95&label=LICENSE" alt="badge"/>
+  <img src="https://img.shields.io/github/stars/StaiLee/Ikelos?style=for-the-badge&logo=github&color=e3b341&label=STARS" alt="badge"/>
+</p>
+
 # 🧬 IKELOS - THE REALITY SHIFTER
 
-[![CI](https://github.com/StaiLee/Ikelos/actions/workflows/ci.yml/badge.svg)](https://github.com/StaiLee/Ikelos/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/StaiLee/Ikelos?color=39E0D8&logo=github)](https://github.com/StaiLee/Ikelos/releases/latest)
-[![Go](https://img.shields.io/github/go-mod/go-version/StaiLee/Ikelos?logo=go&color=00ADD8)](go.mod)
-[![License: MIT](https://img.shields.io/github/license/StaiLee/Ikelos?color=blue)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/StaiLee/Ikelos?logo=github&color=e3b341)](https://github.com/StaiLee/Ikelos/stargazers)
 
 
 > **The Omniscient Web Cloner.**
 > *Absorb. Replicate. Dominate.*
 
-![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
 
 ---
 
