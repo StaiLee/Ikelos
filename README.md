@@ -26,19 +26,21 @@
 
 Named after the Greek god of realistic dreams, Ikelos creates perfect, offline-browsable mirrors of any target website. Built on a high-performance concurrent Golang architecture, it bypasses modern protections (Lazy Loading, WAFs) to deliver pixel-perfect replicas.
 
-**Version 7.0 "THE ARCHITECT"** introduces a redefined "God Tier" TUI, advanced stealth capabilities with proxy support, and intelligent asset parsing for the modern web.
+**Version 8.0 "THE SURGEON"** is a full engineering rebuild: a bounded, deadlock-free worker pool, clean context cancellation, honest error accounting, and a modular package architecture — with the same "God Tier" TUI and stealth toolkit on top.
 
-### ✨ OMNISCIENT Features (v7.0.0)
+### ✨ Features (v8.0.0)
 
-* **🛡️ Stealth & Proxy Support (NEW):** Native support for HTTP/SOCKS proxies and a massive user-agent rotation pool to evade IP bans and WAFs.
-* **⏸️ Tactical Pause (NEW):** Press `P` at any time to freeze the engine, analyze real-time logs, and resume operations seamlessly.
-* **🧠 Intelligent Asset Parsing (NEW):**
-    * **Srcset Decoding:** Downloads high-resolution images defined in responsive `srcset` attributes.
-    * **Deep CSS Analysis:** Detects and downloads assets hidden within `@import` rules and complex `url()` definitions.
-* **💾 MD5 Hashed Storage:** Smart file management uses MD5 hashing for complex URLs and query strings, eliminating "File name too long" errors and filesystem corruption.
-* **🕷️ Sitemap Hunter:** Automatically detects and parses `sitemap.xml` and `robots.txt` to discover hidden pages not linked on the homepage.
-* **⚡ The Swarm Engine:** A massive concurrent downloader capable of saturating bandwidth with hundreds of micro-threads.
-* **👁️ Lazy-Load Killer:** Detects and forces the download of hidden assets (`data-src`, `data-original`), ensuring no broken images or "grey squares".
+* **🩺 Bounded Concurrency Core (REBUILT):** A fixed worker pool draining an unbounded, deadlock-free queue. The `-threads` value now *actually* caps live goroutines — no more RAM blow-ups on large targets — while completion is detected exactly (no `WaitGroup` races).
+* **🛑 Clean Cancellation (NEW):** `Q` cancels the crawl for real via `context.Context`; in-flight requests are interrupted and workers exit gracefully.
+* **🛡️ Stealth & Proxy Support:** Native HTTP/SOCKS proxies and a user-agent rotation pool to evade IP bans and WAFs.
+* **⏸️ Tactical Pause:** Press `P` to freeze the engine, analyze real-time logs, and resume seamlessly.
+* **🧠 Intelligent Asset Parsing:**
+    * **Srcset Decoding:** Downloads responsive `srcset` images while preserving descriptors.
+    * **Deep CSS Surgery:** Rewrites `url(...)` **and** `@import` references (both the `url()` and bare-string forms) so stylesheets resolve fully offline.
+* **🤖 Proper robots.txt:** A real matcher — `User-agent` grouping, `Allow`/`Disallow`, `*`/`$` wildcards, longest-match-wins. Override with `-ignore-robots`.
+* **💾 MD5 Hashed Storage:** Deterministic URL→path mapping with per-segment sanitization, query hashing, `MAX_PATH` collapse, and a **path-traversal guard** that keeps every write inside the output directory.
+* **🕷️ Sitemap Hunter:** Parses `sitemap.xml` (following one level of sitemap-index nesting) to discover unlinked pages.
+* **👁️ Lazy-Load Killer:** Forces download of hidden assets (`data-src`, `data-original`).
 * **🎨 Dynamic Themes:**
     * **🔵 MIRROR:** Cyberpunk Cyan/Blue (High Fidelity).
     * **🔴 BLITZ:** Aggressive Magma Red (Max Speed).
@@ -62,8 +64,11 @@ cd Ikelos
 # 2. Install dependencies
 go mod tidy
 
-# 3. Build the binary
-go build -ldflags="-s -w" -o ikelos main.go
+# 3. Build the binary (compiles the whole module, not just main.go)
+go build -ldflags="-s -w" -o ikelos .
+
+# ...or just run the full pipeline (vet + tests + build)
+make
 ```
 
 ---
@@ -95,6 +100,8 @@ Ikelos simplifies complex mirroring tasks into tactical modes, now with advanced
 | `-depth` | Recursion depth. `2` is standard. |
 | `-threads` | Number of concurrent workers (Default: `20`). |
 | `-nositemap` | Disable the *Sitemap Hunter* module (Strict crawling). |
+| `-ignore-robots` | **(NEW)** Ignore `robots.txt` entirely and crawl everything. |
+| `-insecure` | Skip TLS certificate verification (Default: `true`). Set `-insecure=false` to enforce valid certs. |
 
 ### 🎮 Runtime Controls
 
@@ -125,13 +132,28 @@ Download a documentation site using 50 threads, ignoring sitemaps for speed.
 
 ## 🏗️ Technical Architecture
 
-Ikelos v7.0 is an engineering lesson in **Go Concurrency** and **HTML Surgery**:
+Ikelos v8.0 is split into small, independently-testable packages under `internal/`:
 
-1.  **The Hunter:** Scans `robots.txt` and `sitemap.xml` to build an initial target map.
-2.  **The Brain (Crawler):** Manages a thread-safe `Visited` map, handles pause states, and distributes jobs via a semaphore-controlled queue.
-3.  **The Swarm (Workers):** Hundreds of Goroutines fetch assets simultaneously via a persistent HTTP Transport.
-4.  **The Surgeon (Parser):** Uses `goquery` to parse DOM, inject local MD5-hashed paths, resolve CSS `@import`/`url()`, and decrypt `srcset` attributes.
-5.  **The Overseer (TUI):** A separate Bubble Tea event loop renders the dashboard at 60fps, providing a real-time "Live Feed" and segmented progress visualization without blocking the engine.
+```
+main.go                 # thin wiring: flags → Config → engine → TUI
+internal/
+├─ urlx/     # URL resolution & scope checks (pure, tested)
+├─ robots/   # robots.txt matcher: User-agent groups, Allow/Disallow, *,$ (tested)
+├─ store/    # deterministic URL→disk mapping + writes + traversal guard (tested)
+├─ rewrite/  # HTML / CSS / srcset surgery via goquery (pure, tested)
+├─ engine/   # bounded worker pool, dispatcher, fetcher, orchestration (tested + integration)
+└─ tui/      # Bubble Tea dashboard + interactive manual
+```
+
+The crawl pipeline:
+
+1.  **The Hunter** (`engine`): fetches `robots.txt` and `sitemap.xml` *synchronously* before the pool starts, so seeds are counted before any worker can drain the queue — no `WaitGroup` race.
+2.  **The Dispatcher** (`engine/dispatcher.go`): an unbounded, mutex+`Cond` queue with an exact *pending* counter. It detects true completion (nothing queued or in flight) and unblocks cleanly on cancellation.
+3.  **The Pool** (`engine`): a **fixed** number of workers (`-threads`) pull jobs; deduplication happens at enqueue time via a `sync.Map`, so concurrency and memory are both bounded regardless of site size.
+4.  **The Surgeon** (`rewrite`): `goquery`-based DOM rewriting, `srcset` decoding, and CSS `url()`/`@import` localization — with all outside effects behind a `Sink` interface, keeping the logic pure and unit-tested.
+5.  **The Overseer** (`tui`): a Bubble Tea loop rendering a live dashboard from a lock-free `Stats` snapshot, never blocking the engine (logs are dropped, not queued, if the UI lags).
+
+Reliability guarantees: context-based cancellation, retry **only** on transient failures (network / 5xx / 429) with jittered backoff, `io.LimitReader`-capped response bodies, real I/O error accounting, and panic isolation per job.
 
 ---
 

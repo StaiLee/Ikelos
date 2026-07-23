@@ -1,6 +1,6 @@
 # --- CONFIGURATION ---
 BINARY_NAME := ikelos
-MAIN_FILE := main.go
+PKG := .
 GO := go
 
 # --- COULEURS ---
@@ -12,9 +12,9 @@ BLUE := \033[34m
 CYAN := \033[36m
 RED := \033[31m
 
-.PHONY: all build run clean deps install help
+.PHONY: all build run test vet clean deps install help
 
-all: check-deps build
+all: check-deps vet test build
 	@echo "$(GREEN)✨ System Ready.$(RESET)"
 	@echo "Run $(BOLD)make run$(RESET) to access the console."
 
@@ -23,9 +23,18 @@ check-deps:
 	@$(GO) mod tidy
 	@echo "$(GREEN)✔ Dependencies locked.$(RESET)"
 
+test:
+	@echo "$(CYAN)🧪 Running test suite...$(RESET)"
+	@$(GO) test ./... || (echo "$(RED)❌ Tests Failed$(RESET)"; exit 1)
+	@echo "$(GREEN)✔ All tests passed.$(RESET)"
+
+vet:
+	@echo "$(CYAN)🔬 Vetting...$(RESET)"
+	@$(GO) vet ./...
+
 build:
-	@echo "$(CYAN)🔨 Compiling THE OMNISCIENT...$(RESET)"
-	@$(GO) build -ldflags="-s -w" -o $(BINARY_NAME) $(MAIN_FILE) || (echo "$(RED)❌ Compilation Failed$(RESET)"; exit 1)
+	@echo "$(CYAN)🔨 Compiling THE SURGEON...$(RESET)"
+	@$(GO) build -ldflags="-s -w" -o $(BINARY_NAME) $(PKG) || (echo "$(RED)❌ Compilation Failed$(RESET)"; exit 1)
 	@echo "$(GREEN)✔ Binary generated: ./$(BINARY_NAME)$(RESET)"
 
 run: build
